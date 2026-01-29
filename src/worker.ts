@@ -123,7 +123,7 @@ async function reserveUTXO(): Promise<{
      SET status = 'reserved', reserved_at = NOW()
      WHERE id = (
        SELECT id FROM utxos
-       WHERE purpose = 'publish_pool' AND status = 'available'
+       WHERE purpose = 'publish' AND status = 'available'
        ORDER BY created_at ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED
