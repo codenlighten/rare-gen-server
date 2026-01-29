@@ -313,38 +313,113 @@
 ## 🏗️ Phase 2: Container B Implementation (Weeks 3-6)
 **Priority: HIGH** | **Timeline: 3-4 weeks**
 
-### 2.1 Identity & Registration Service (Week 3)
-**Goal:** User registration with email verification
+### 2.1 Identity & Registration Service with Shamir Secret Sharing (Week 3)
+**Goal:** User registration with secure non-custodial key management
 
 **Components:**
-- [ ] User registration API
+- [ ] **Shamir Secret Sharing Key Generation**
+  - Generate 3 keypairs: identity (signing), financial (earnings), tokens (credits)
+  - Split each private key into 5 Shamir shares (3-of-5 threshold recovery)
+  - Implement using `@smartledger/bsv` Shamir crypto module
+  ```typescript
+  import { PrivateKey, ShamirSecret } from '@smartledger/bsv';
+  
+  // Generate 3 keypairs
+  const identityKey = PrivateKey.fromRandom();
+  const financialKey = PrivateKey.fromRandom();
+  const tokensKey = PrivateKey.fromRandom();
+  
+  // Split each into 5 shares (need 3 to recover)
+  const identityShares = ShamirSecret.split(identityKey.toWIF(), 3, 5);
+  const financialShares = ShamirSecret.split(financialKey.toWIF(), 3, 5);
+  const tokensShares = ShamirSecret.split(tokensKey.toWIF(), 3, 5);
+  ```
+
+- [ ] **5-Share Backup Distribution System**
+  - **Share 1**: User downloads JSON file (keys.json)
+  - **Share 2**: User prints recovery sheet with QR codes
+  - **Share 3**: Encrypted with user password, stored in database
+  - **Share 4**: Encrypted with user password, stored in DO Spaces backup
+  - **Share 5**: Encrypted and emailed to user's verified email
+  
+- [ ] **User Registration API**
   ```typescript
   POST /v1/auth/register
   {
     "email": "user@example.com",
     "name": "Publisher Name",
-    "organization": "Rights Holder LLC"
+    "organization": "Rights Holder LLC",
+    "password": "user_chosen_password"  // for encrypting shares 3,4,5
+  }
+  
+  Response:
+  {
+    "userId": "uuid",
+    "shares": {
+      "download": {
+        "identity": ["share1_base64"],
+        "financial": ["share1_base64"],
+        "tokens": ["share1_base64"]
+      },
+      "print": {
+        "identity": ["share2_base64"],
+        "financial": ["share2_base64"],
+        "tokens": ["share2_base64"],
+        "qrCodes": ["data:image/png;base64,..."]
+      }
+    },
+    "publicKeys": {
+      "identity": "03abc...",
+      "financial": "02def...",
+      "tokens": "02ghi..."
+    }
   }
   ```
-- [ ] Email OTP generation and sending
-- [ ] OTP verification endpoint
-- [ ] Public key registration flow
+
+- [ ] **Encrypted Share Storage**
   ```typescript
-  POST /v1/auth/register-key
+  // Encrypt shares 3, 4, 5 with user password
+  import { Cipher } from '@smartledger/bsv';
+  
+  const encrypted = Cipher.encrypt(
+    share3,
+    userPassword,
+    { algorithm: 'aes-256-gcm' }
+  );
+  ```
+
+- [ ] **Email OTP verification**
+- [ ] **Key Recovery Flow**
+  ```typescript
+  POST /v1/auth/recover
   {
     "email": "user@example.com",
-    "otp": "123456",
-    "publicKey": "02abc..."
+    "password": "user_password",  // to decrypt shares 3,4,5
+    "otpCode": "123456"
   }
+  
+  Response:
+  {
+    "shares": {
+      "database": ["share3_base64"],
+      "spaces": ["share4_base64"],
+      "email": ["share5_base64"]
+    }
+  }
+  
+  // Client reconstructs keys
+  const recoveredWIF = ShamirSecret.combine([share3, share4, share5]);
+  const recoveredKey = PrivateKey.fromWIF(recoveredWIF);
   ```
-- [ ] User profile management
-- [ ] Database schema updates
+
+- [ ] **Database Schema Updates**
   ```sql
   CREATE TABLE users (
     user_id UUID PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255),
     organization VARCHAR(255),
+    password_hash VARCHAR(255) NOT NULL,  -- bcrypt for share encryption
     status VARCHAR(50) DEFAULT 'pending',
     email_verified BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW()
@@ -353,8 +428,19 @@
   CREATE TABLE user_keys (
     key_id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(user_id),
+    key_type VARCHAR(20) NOT NULL,  -- 'identity', 'financial', 'tokens'
     pubkey_hex VARCHAR(66) UNIQUE,
-    label VARCHAR(100),
+    address VARCHAR(64),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, key_type)
+  );
+  
+  CREATE TABLE key_backups (
+    backup_id UUID PRIMARY KEY,
+    key_id UUID REFERENCES user_keys(key_id),
+    share_number INTEGER,  -- 3, 4, or 5
+    share_encrypted TEXT,  -- encrypted with user password
+    storage_location VARCHAR(50),  -- 'database', 'spaces', 'email'
     created_at TIMESTAMP DEFAULT NOW()
   );
   
@@ -362,17 +448,42 @@
     otp_id UUID PRIMARY KEY,
     email VARCHAR(255),
     code VARCHAR(6),
+    purpose VARCHAR(50),  -- 'registration', 'recovery', 'login'
     expires_at TIMESTAMP,
     verified BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW()
   );
+  
+  CREATE TABLE recovery_attempts (
+    attempt_id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(user_id),
+    success BOOLEAN,
+    shares_used TEXT[],
+    ip_address INET,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
   ```
 
+- [ ] **Frontend Components** (Lion Rasta Theme)
+  - Registration wizard with password setup
+  - Key generation loading screen (animated lion with rasta-colored mane)
+  - Share download button (JSON + printable PDF with lion branding)
+  - Recovery flow with email OTP
+  - "Test Recovery" flow (verify user can recover before using)
+  - **Design System:** Dark theme with rasta colors (red #E8222E, gold #FFC627, green #009E60)
+  - **Branding:** Lion mascot representing strength + freedom
+  - **See:** [DESIGN.md](DESIGN.md) for complete brand guidelines
+
 **Success Criteria:**
-- Users can register with email
+- Users register with email + password
+- 3 keypairs generated client-side or server-side
+- 5 Shamir shares created for each key
+- Shares distributed: download, print, DB (encrypted), Spaces (encrypted), email
+- Users can recover keys with any 3 shares
 - OTP codes sent and verified
-- Public keys registered and linked to users
 - Email templates professional and branded
+- Recovery attempts logged for security audit
+- **Critical**: Test recovery flow works before user publishes first transaction
 
 ---
 
@@ -421,28 +532,52 @@
 ---
 
 ### 2.3 Wallet & Transaction History (Week 5)
-**Goal:** User-facing transaction dashboard
+**Goal:** User-facing transaction dashboard with key management
 
 **Components:**
-- [ ] Transaction history API
+- [ ] **Key Management Dashboard**
+  - Display all 3 public keys (identity, financial, tokens)
+  - Show addresses for receiving payments
+  - QR codes for each address
+  - Key backup status indicator (✅ all 5 shares distributed)
+  - Re-download shares button
+  - Re-send email share button
+  - Test recovery flow button
+  
+- [ ] **Transaction History API**
   ```typescript
   GET /v1/wallet/transactions?limit=50&offset=0
   GET /v1/wallet/transaction/:txid
   ```
-- [ ] Published records dashboard
+  
+- [ ] **Published Records Dashboard**
   ```typescript
   GET /v1/wallet/records?status=published&limit=20
   ```
-- [ ] UTXO management interface
-- [ ] Balance tracking (credits + sats spent)
-- [ ] Export functionality (CSV, JSON)
-- [ ] Transaction receipts (PDF generation)
+  
+- [ ] **Multi-Key Balance Tracking**
+  - Identity key: Transaction count, total bytes anchored
+  - Financial key: Satoshis received, USD equivalent
+  - Tokens key: Credits remaining, subscription status
+  
+- [ ] **Share Management Interface**
+  - View backup locations (which shares are stored where)
+  - Test recovery without consuming OTP
+  - Rotate keys (generate new, migrate records)
+  - Export all data (GDPR compliance)
+  
+- [ ] **UTXO Management Interface**
+- [ ] **Export Functionality** (CSV, JSON)
+- [ ] **Transaction Receipts** (PDF generation with branding)
 
 **Success Criteria:**
 - Complete transaction history visible
+- All 3 keypairs displayed with addresses
+- Backup status clear (✅ 5/5 shares secured)
 - Real-time status updates
 - Export working in multiple formats
 - Professional receipts generated
+- Test recovery accessible without risk
 
 ---
 

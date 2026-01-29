@@ -4,6 +4,7 @@
  */
 
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { Queue } from "bullmq";
 import { initDb, getPool, createPublishJob, recordNonce } from "./db";
 import { validatePublishIntent, recordNonceUsage } from "./routes/validation";
 import { hashJSON } from "./crypto/signatures";
@@ -11,6 +12,9 @@ import { PublishResponse, HealthStatus } from "./types";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const NODE_ENV = process.env.NODE_ENV || "development";
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+
+let publishQueue: Queue;
 
 let server: FastifyInstance;
 
@@ -26,6 +30,12 @@ async function initServer(): Promise<FastifyInstance> {
 
   // Initialize database
   await initDb();
+
+  // Initialize BullMQ queue
+  publishQueue = new Queue("publish_jobs", {
+    connection: { url: REDIS_URL } as any,
+  });
+  console.log("✓ BullMQ queue initialized");
 
   // Health check endpoint
   app.get("/health", async (req, res) => {
@@ -114,8 +124,16 @@ async function initServer(): Promise<FastifyInstance> {
         record.distribution.sha256
       );
 
-      // 4. TODO: Enqueue job to BullMQ
-      // await publishQueue.add("publish", { jobId }, { jobId });
+      // 4. Enqueue job to BullMQ
+      await publishQueue.add(
+        "publish",
+        {
+          jobId,
+          recordId: record.recordId,
+          recordHash,
+        },
+        { jobId } // Use jobId as the BullMQ job ID for idempotency
+      );
 
       // 5. Audit log
       try {
