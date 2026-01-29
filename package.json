@@ -1,0 +1,48 @@
+{
+  "name": "raregen-server",
+  "version": "2.0.0",
+  "description": "Investor-grade DRM rights publisher for BSV blockchain",
+  "main": "dist/api.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/api.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "api": "node dist/api.js",
+    "worker": "node dist/worker.js",
+    "db:migrate": "node dist/db/migrate.js",
+    "db:seed": "node dist/db/seed.js",
+    "keys:generate": "tsx src/scripts/generateKeys.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "bsv",
+    "blockchain",
+    "drm",
+    "rights",
+    "publisher",
+    "ordinals"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@smartledger/bsv": "^3.4.0",
+    "ajv": "^8.17.1",
+    "aws-sdk": "^2.1693.0",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^5.67.2",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.7.2",
+    "jcs": "^0.0.1",
+    "nodemailer": "^7.0.13",
+    "pg": "^8.17.2",
+    "redis": "^5.10.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/pg": "^8.16.0",
+    "axios": "^1.13.4"
+  }
+}

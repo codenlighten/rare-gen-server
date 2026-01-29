@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: raregen
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis cache + message queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Publisher API (Container A)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "dist/api.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/raregen
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+      BSV_PRIVATE_KEY: ${BSV_PRIVATE_KEY}
+      BSV_PUBLIC_KEY: ${BSV_PUBLIC_KEY}
+      BSV_ADDRESS: ${BSV_ADDRESS}
+      EXPLORER_BASE_URL: https://explorer.codenlighten.org
+      FEE_SATS_PER_KB: 100
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Publisher Worker (queue processor)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "dist/worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/raregen
+      REDIS_URL: redis://redis:6379
+      BSV_PRIVATE_KEY: ${BSV_PRIVATE_KEY}
+      BSV_ADDRESS: ${BSV_ADDRESS}
+      EXPLORER_BASE_URL: https://explorer.codenlighten.org
+      FEE_SATS_PER_KB: 100
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
