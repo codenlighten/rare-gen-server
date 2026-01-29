@@ -26,7 +26,7 @@ async function initQueue(): Promise<void> {
     url: REDIS_URL,
   };
   
-  publishQueue = new Queue("publish:jobs", {
+  publishQueue = new Queue("publish_jobs", {
     connection: connection as any,
   });
 
@@ -201,7 +201,7 @@ export async function startWorker(): Promise<void> {
   await initQueue();
 
   worker = new Worker(
-    "publish:jobs",
+    "publish_jobs",
     async (job) => {
       const { jobId, recordId, recordHash } = job.data;
 
@@ -230,7 +230,7 @@ export async function startWorker(): Promise<void> {
   console.log("========================================");
   console.log("RareGen Publisher Worker");
   console.log("========================================");
-  console.log("✓ Worker started, listening on queue: publish:jobs");
+  console.log("✓ Worker started, listening on queue: publish_jobs");
   console.log("========================================\n");
 }
 
