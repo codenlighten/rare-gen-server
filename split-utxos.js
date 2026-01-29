@@ -31,7 +31,8 @@ const colors = {
 
 async function getFundingUTXO() {
   const response = await axios.get(`${EXPLORER_BASE}/api/bsv/main/address/${BSV_ADDRESS}/utxos`);
-  const utxos = response.data || [];
+  const data = response.data?.data || response.data;
+  const utxos = data?.result || data || [];
   
   if (utxos.length === 0) {
     throw new Error('No UTXOs found for funding address');
