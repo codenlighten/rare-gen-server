@@ -134,13 +134,13 @@ export async function createPublishJob(
   recordCanonical: string,
   recordHash: string,
   cdnUrl?: string,
-  fileSha256?: string
+  cdnSha256?: string
 ): Promise<string> {
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   await getPool().query(
-    `INSERT INTO publish_jobs (job_id, record_id, record_canonical, record_hash, cdn_url, file_sha256, status)
+    `INSERT INTO publish_jobs (job_id, record_id, record_canonical, record_hash, cdn_url, cdn_sha256, status)
      VALUES ($1, $2, $3, $4, $5, $6, 'queued')`,
-    [jobId, recordId, recordCanonical, recordHash, cdnUrl || null, fileSha256 || null]
+    [jobId, recordId, recordCanonical, recordHash, cdnUrl || null, cdnSha256 || null]
   );
   return jobId;
 }
