@@ -59,7 +59,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # Publisher Worker (queue processor)
+  # Publisher Worker (queue processor - single job mode)
   worker:
     build:
       context: .
@@ -79,6 +79,33 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    profiles:
+      - single
+
+  # Batch Worker (high-throughput mode - 500 tx/3s)
+  batch-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "dist/batch-worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/raregen
+      BSV_PRIVATE_KEY: ${BSV_PRIVATE_KEY}
+      BSV_ADDRESS: ${BSV_ADDRESS}
+      EXPLORER_BASE_URL: https://explorer.codenlighten.org
+      FEE_SATS_PER_KB: 100
+      BATCH_WINDOW_MS: 5000
+      MAX_BATCH_SIZE: 500
+      MAX_TX_PER_3S: 500
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - batch
 
 volumes:
   pgdata:
