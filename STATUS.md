@@ -1,9 +1,10 @@
 # RareGen Server - Investor-Grade DRM Rights Publisher for BSV
 
 **Version:** 2.0.0 (TypeScript/Fastify/BullMQ)  
-**Last Updated:** January 29, 2026  
-**Status:** 🟢 **Production Ready with SSL/TLS**  
-**Brand Identity:** 🦁 Lion Rasta Theme (Strength + Freedom)
+**Last Updated:** January 30, 2026  
+**Status:** 🟢 **Production Ready with Safety Rails Deployed**  
+**Brand Identity:** 🦁 Lion Rasta Theme (Strength + Freedom)  
+**Latest Deployment:** Jan 30, 2026 18:17 UTC - See [DEPLOYMENT_VERIFICATION.md](DEPLOYMENT_VERIFICATION.md)
 
 ---
 
@@ -192,7 +193,7 @@ Based on code analysis, these tables are expected:
 
 ## 🔐 Phase 1 Completion: Production Hardening ✅
 
-**Completed January 29, 2026**
+**Completed January 30, 2026**
 
 ### SSL/TLS Configuration
 - ✅ Certbot installed and configured
@@ -225,13 +226,45 @@ Based on code analysis, these tables are expected:
 - ✅ HTTP/2 support enabled
 - ✅ Valid SSL certificate with A+ rating potential
 
+### BullMQ Queue Integration ✅
+- ✅ API enqueues jobs to BullMQ (Redis-backed)
+- ✅ Worker processes jobs asynchronously
+- ✅ Transactional job state transitions (queued → processing → sent/failed)
+- ✅ Auto-updating `updated_at` triggers on all state changes
+- ✅ Index on `(status, created_at)` for efficient job claiming
+
 ### First Live Transaction Test ✅
 - ✅ Test user generated: codenlighten1@gmail.com
 - ✅ 3 keypairs created: identity (signing), financial (earnings), tokens (credits)
 - ✅ Test user identity key registered in production database
-- ✅ First transaction published successfully: REC-1769722193914
-- ✅ Job queued: job_1769722194336_2bdq87 (status: queued)
-- ✅ End-to-end flow validated: client-side ECDSA signing → API signature verification → job queuing
+- ✅ Multiple transactions published successfully
+- ✅ **First successful TXID**: `0de62ec6ca804981dea999e0eb8ea5c2ce8c2989b14f9b3230f8254d8811514a`
+- ✅ End-to-end flow validated: client-side ECDSA signing → API signature verification → BullMQ enqueue → worker processing → blockchain broadcast
+
+### UTXO Pool Management ✅
+- ✅ **102 UTXOs** of 100 sats each (ready for high-volume publishing)
+- ✅ **1 change UTXO** of 5,816,940 sats (for future splits)
+- ✅ Atomic UTXO reservation with `FOR UPDATE SKIP LOCKED`
+- ✅ **5-minute reservation timeout** (auto-release if worker crashes)
+- ✅ **Dirty UTXO tracking** (mempool conflict handling)
+- ✅ Spent UTXO tracking with `spent_by_txid`
+- ✅ Expired reservation cleanup on every worker cycle
+- ✅ Smallest-first selection (efficient fee usage)
+
+### Database Schema Improvements ✅
+- ✅ **Auto-updating triggers**: `updated_at` automatically set on every UPDATE
+- ✅ **UTXO safety rails**: `reserved_until`, `dirty`, `spent_by_txid` columns
+- ✅ **Batch mode support**: `publish_batches` table, `processing_batch_id` column
+- ✅ **Performance indexes**: job claiming, UTXO reservation, batch lookups
+- ✅ **Migration system**: Versioned SQL migrations (001-005)
+
+### Worker Improvements ✅
+- ✅ **Transactional state transitions**: atomic job claiming and UTXO reservation
+- ✅ **Mempool conflict handling**: mark UTXOs dirty, retry with different UTXO
+- ✅ **Reservation timeout**: release stuck UTXOs after 5 minutes
+- ✅ **Error recovery**: proper UTXO release on broadcast failures
+- ✅ **Failed job tracking**: `error_code` and `error_detail` captured
+- ✅ **Deployed and verified**: All features operational in production (see [DEPLOYMENT_VERIFICATION.md](DEPLOYMENT_VERIFICATION.md))
 
 ### Shamir Secret Sharing Architecture 📋 Designed
 **Goal:** Solve crypto's biggest UX problem ("lost keys = lost everything") while maintaining non-custodial security
@@ -259,9 +292,10 @@ Based on code analysis, these tables are expected:
 - [ ] Monitoring & Alerting (Prometheus/Grafana)
 - [ ] Database Backup Strategy (automated + DO Spaces)
 - [ ] Security Hardening (UFW firewall, fail2ban, auto-updates)
-- [ ] Monitor first transaction to completion (job_1769722194336_2bdq87)
+- [ ] Implement batch collector (500 tx/3s with 5-second window)
 - [ ] Incident Response Procedures
 - [ ] Log Aggregation & Retention
+- [ ] Deterministic tx verification endpoint (WhatsOnChain/Bitails integration)
 
 ---
 

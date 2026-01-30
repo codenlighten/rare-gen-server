@@ -10,10 +10,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.startAPI = startAPI;
 exports.stopAPI = stopAPI;
 const fastify_1 = __importDefault(require("fastify"));
+const bullmq_1 = require("bullmq");
 const db_1 = require("./db");
 const validation_1 = require("./routes/validation");
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const NODE_ENV = process.env.NODE_ENV || "development";
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+let publishQueue;
 let server;
 /**
  * Initialize Fastify server
@@ -26,6 +29,11 @@ async function initServer() {
     });
     // Initialize database
     await (0, db_1.initDb)();
+    // Initialize BullMQ queue
+    publishQueue = new bullmq_1.Queue("publish_jobs", {
+        connection: { url: REDIS_URL },
+    });
+    console.log("✓ BullMQ queue initialized");
     // Health check endpoint
     app.get("/health", async (req, res) => {
         const health = {
@@ -97,8 +105,13 @@ async function initServer() {
             await (0, validation_1.recordNonceUsage)(pubkeyHex, record.nonce, record.recordId);
             // 3. Create publish job
             const jobId = await (0, db_1.createPublishJob)(record.recordId, JSON.stringify(record), recordHash, record.distribution.cdnUrl, record.distribution.sha256);
-            // 4. TODO: Enqueue job to BullMQ
-            // await publishQueue.add("publish", { jobId }, { jobId });
+            // 4. Enqueue job to BullMQ
+            await publishQueue.add("publish", {
+                jobId,
+                recordId: record.recordId,
+                recordHash,
+            }, { jobId } // Use jobId as the BullMQ job ID for idempotency
+            );
             // 5. Audit log
             try {
                 await (0, db_1.getPool)().query(`INSERT INTO audit_log (event_type, actor_pubkey, resource_type, resource_id, action, details)
