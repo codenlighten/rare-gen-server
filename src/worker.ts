@@ -109,7 +109,7 @@ async function broadcastTx(txHex: string): Promise<string> {
 }
 
 /**
- * Reserve UTXO atomically
+ * Reserve UTXO atomically with timeout
  */
 async function reserveUTXO(): Promise<{
   id: number;
@@ -118,13 +118,26 @@ async function reserveUTXO(): Promise<{
   satoshis: number;
   script_pub_key: string;
 } | null> {
+  // First, release any expired reservations
+  await getPool().query(
+    `UPDATE utxos
+     SET status = 'available', reserved_at = NULL, reserved_until = NULL
+     WHERE status = 'reserved' 
+     AND reserved_until < NOW()`
+  );
+
+  // Reserve a UTXO with 5-minute timeout
   const result = await getPool().query(
     `UPDATE utxos
-     SET status = 'reserved', reserved_at = NOW()
+     SET status = 'reserved', 
+         reserved_at = NOW(), 
+         reserved_until = NOW() + INTERVAL '5 minutes'
      WHERE id = (
        SELECT id FROM utxos
-       WHERE purpose = 'publish' AND status = 'available'
-       ORDER BY created_at ASC
+       WHERE purpose = 'publish' 
+       AND status = 'available'
+       AND (dirty = FALSE OR dirty IS NULL)
+       ORDER BY satoshis ASC, created_at ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED
      )
@@ -143,6 +156,31 @@ async function markUTXOSpent(utxoId: number, txid: string): Promise<void> {
      SET status = 'spent', spent_at = NOW(), spent_by_txid = $2
      WHERE id = $1`,
     [utxoId, txid]
+  );
+}
+
+/**
+ * Mark UTXO as dirty (mempool conflict)
+ */
+async function markUTXODirty(utxoId: number, reason: string): Promise<void> {
+  await getPool().query(
+    `UPDATE utxos
+     SET dirty = TRUE, status = 'available', reserved_at = NULL, reserved_until = NULL
+     WHERE id = $1`,
+    [utxoId]
+  );
+  console.log(`[Worker] Marked UTXO ${utxoId} as dirty: ${reason}`);
+}
+
+/**
+ * Release UTXO reservation on error
+ */
+async function releaseUTXO(utxoId: number): Promise<void> {
+  await getPool().query(
+    `UPDATE utxos 
+     SET status = 'available', reserved_at = NULL, reserved_until = NULL 
+     WHERE id = $1`,
+    [utxoId]
   );
 }
 
@@ -175,7 +213,7 @@ async function processJob(
     // 4. Update publish job
     await getPool().query(
       `UPDATE publish_jobs
-       SET status = 'sent', txid = $1, sent_at = NOW(), updated_at = NOW()
+       SET status = 'sent', txid = $1, sent_at = NOW()
        WHERE job_id = $2`,
       [txid, jobId]
     );
@@ -184,11 +222,24 @@ async function processJob(
     await markUTXOSpent(utxo.id, txid);
 
     return txid;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[Worker] Error processing job ${jobId}:`, error);
 
-    // Release UTXO reservation
-    await getPool().query(`UPDATE utxos SET status = 'available' WHERE id = $1`, [utxo.id]);
+    // Handle mempool conflicts
+    if (error.message && error.message.includes("mempool")) {
+      await markUTXODirty(utxo.id, error.message);
+    } else {
+      // Release UTXO reservation for other errors
+      await releaseUTXO(utxo.id);
+    }
+
+    // Update job status to failed
+    await getPool().query(
+      `UPDATE publish_jobs
+       SET status = 'failed', error_code = $1, error_detail = $2
+       WHERE job_id = $3`,
+      ["BROADCAST_ERROR", error.message, jobId]
+    );
 
     throw error;
   }
