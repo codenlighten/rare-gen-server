@@ -216,6 +216,7 @@ Based on code analysis, these tables are expected:
 ### Docker Configuration
 - ✅ API bound to 127.0.0.1:3000 (localhost only)
 - ✅ External traffic routed through Nginx
+- ✅ Redis bound to localhost only (127.0.0.1:6379)
 - ✅ Database and Redis still available on open ports (internal use)
 
 ### Access & Verification

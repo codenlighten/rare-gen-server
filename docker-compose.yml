@@ -1,14 +1,12 @@
 version: "3.8"
 
 services:
-  # PostgreSQL database
+  # PostgreSQL database (internal-only, no public port)
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: raregen
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -16,17 +14,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - raregen_net
 
-  # Redis cache + message queue
+  # Redis cache + message queue (internal-only, no public port)
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - raregen_net
 
   # Publisher API (Container A)
   api:
@@ -58,6 +59,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - raregen_net
 
   # Publisher Worker (queue processor - single job mode)
   worker:
@@ -81,6 +84,8 @@ services:
         condition: service_healthy
     profiles:
       - single
+    networks:
+      - raregen_net
 
   # Batch Worker (high-throughput mode - 500 tx/3s)
   batch-worker:
@@ -106,6 +111,12 @@ services:
         condition: service_healthy
     profiles:
       - batch
+    networks:
+      - raregen_net
 
 volumes:
   pgdata:
+
+networks:
+  raregen_net:
+    driver: bridge
