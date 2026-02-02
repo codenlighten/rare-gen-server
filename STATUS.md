@@ -1,20 +1,97 @@
 # RareGen Server - Investor-Grade DRM Rights Publisher for BSV
 
-**Version:** 2.1.0 (Batch Mode Deployed)  
-**Last Updated:** February 2, 2026  
-**Status:** 🟢 **Production: Batch Mode Active (500 tx/3s Rate Limited)**  
+**Version:** 2.2.0 (UTXO Replenisher Deployed with Anti-Thrash Protection)  
+**Last Updated:** February 2, 2026 15:10 UTC  
+**Status:** 🟢 **Production: Batch Mode + Auto-Replenisher Active**  
+**Rate Limiter:** 500 tx/3s ceiling (token bucket)  
+**UTXO Pool:** 10,097 × 100-sat UTXOs (~1 min runtime @ 166 tx/sec)  
 **Brand Identity:** 🦁 Lion Rasta Theme (Strength + Freedom)  
-**Latest Deployment:** Feb 2, 2026 03:50 UTC - Batch-worker operational
+**Latest Deployment:** Feb 2, 2026 15:06 UTC - Replenisher with cooldown safeguards
 
 ---
 
-## 🎯 Strategic Objectives
+## 🎯 Current Status
 
-This application implements **investor-grade robustness**, **legal/industry-style rights records**, and **high-throughput publishing** on BSV blockchain with a clear migration path:
+### ✅ Operational Components
 
-- **Phase 1 (Now):** Signed publishing intents → queue-based async processing
-- **Phase 2 (Next):** Batch bundling (5s windows) → 500 tx/3s rate limiting
-- **Phase 3 (Future):** 1Sat ordinals "Rights Tokens" + multi-region routing
+1. **Batch Worker** - Collector + Broadcaster with rate limiter
+   - 5-second collection windows
+   - Token bucket: 500 tokens, 3-second refill
+   - Sustained: 166.67 tx/sec, Burst: 500 tx immediate
+
+2. **UTXO Replenisher** - Automated pool maintenance (NEW)
+   - MIN threshold: 8,000 UTXOs
+   - Split target: 15,000 UTXOs per transaction
+   - Check interval: 60 seconds
+   - **Cooldown: 10 minutes** (prevents mid-flight false triggers)
+   - Purpose separation: `funding`/`change` (for splits) vs `publish` (for transactions)
+
+3. **Production Infrastructure**
+   - SSL/TLS: Let's Encrypt (expires April 29, 2026)
+   - Nginx reverse proxy with HSTS
+   - Docker internal network (redis/postgres internal-only)
+   - Strong Postgres password (32-byte random)
+
+### 📊 Latest Verified Results
+
+**UTXO Split Transaction (Feb 2, 2026):**
+- TXID: `65fc094bcad16fde470883cbe43ab58c7c58e88213e6b340210474695c57db63`
+- Size: 340,193 bytes (10,000 outputs)
+- Fee: 34,019 sats (0.1 sat/byte - efficient)
+- Outputs: 10,000 × 100 sats + 1 × 4.78M change
+- [Explorer Link](https://explorer.codenlighten.org/tx/65fc094bcad16fde470883cbe43ab58c7c58e88213e6b340210474695c57db63)
+
+**Current Pool Status:**
+- Purpose `publish`: 10,097 UTXOs (available)
+- Purpose `change`: 1 UTXO (4.78M sats, recyclable)
+- Purpose `funding`: 0 UTXOs (spent in split)
+- Pool Capacity: ~60 seconds @ 166 tx/sec sustained
+
+---
+
+## 🔧 Anti-Thrashing Protection
+
+The replenisher now includes safeguards to prevent false triggers during load tests:
+
+**Problem:** When publishing at high rates, UTXOs transition from `available` → `reserved` → `spent`. This temporarily reduces the "available" count, potentially triggering unnecessary splits mid-flight.
+
+**Solution:**
+1. **Split Cooldown** - 10-minute lockout after each split
+2. **Slower Check Interval** - 60s (reduced from 30s) for load testing
+3. **Timestamp Tracking** - `lastSplitTime` prevents rapid re-splits
+
+**Configuration:**
+```bash
+MIN_UTXO_POOL_SIZE=8000        # Trigger threshold
+UTXO_SPLIT_SIZE=15000           # Target output count
+POOL_CHECK_INTERVAL_MS=60000    # Check every 60s
+SPLIT_COOLDOWN_MS=600000        # 10-min cooldown
+```
+
+---
+
+## 🚀 Ready for Load Testing
+
+### 600-Job Rate Limiter Test
+
+**Objective:** Prove rate limiter ceiling (500 tx/3s) under realistic load
+
+**Expected Behavior:**
+- Throughput ramps to ~166 tx/sec sustained
+- `sent_last_3s` query hovers near 500 (never exceeds)
+- No stuck jobs (`status='sending'` for >2 min)
+- Pool depth remains stable (replenisher on cooldown)
+
+**Test Script:** `./test-batch-load.sh 600 https://api.raregeneration.me`
+
+**Monitoring Queries:** `test-monitoring-queries.sql`
+1. Rate limiter ceiling proof (`sent_last_3s`)
+2. Stuck job detection
+3. UTXO pool status by state
+4. Batch processing stats
+5. Overall progress
+6. Error analysis
+7. Throughput distribution
 
 ---
 
