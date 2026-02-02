@@ -131,7 +131,8 @@ services:
       FEE_SATS_PER_KB: 100
       MIN_UTXO_POOL_SIZE: 8000
       UTXO_SPLIT_SIZE: 15000
-      POOL_CHECK_INTERVAL_MS: 30000
+      POOL_CHECK_INTERVAL_MS: 60000
+      SPLIT_COOLDOWN_MS: 600000
       LOG_LEVEL: info
     depends_on:
       postgres:

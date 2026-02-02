@@ -22,9 +22,10 @@ dotenv.config();
 const { Pool } = pg;
 
 // Configuration
-const MIN_POOL_SIZE = parseInt(process.env.MIN_UTXO_POOL_SIZE || "50000", 10);
-const TARGET_SPLIT_SIZE = parseInt(process.env.UTXO_SPLIT_SIZE || "100000", 10);
+const MIN_POOL_SIZE = parseInt(process.env.MIN_UTXO_POOL_SIZE || "5000", 10);
+const TARGET_SPLIT_SIZE = parseInt(process.env.UTXO_SPLIT_SIZE || "10000", 10);
 const CHECK_INTERVAL_MS = parseInt(process.env.POOL_CHECK_INTERVAL_MS || "30000", 10);
+const SPLIT_COOLDOWN_MS = parseInt(process.env.SPLIT_COOLDOWN_MS || "600000", 10); // 10 min default
 const UTXO_AMOUNT = 100; // sats per UTXO
 
 const EXPLORER_BASE = process.env.EXPLORER_BASE_URL || "https://explorer.codenlighten.org";
@@ -35,11 +36,15 @@ const FEE_SAT_PER_KB = parseInt(process.env.FEE_SATS_PER_KB || "100", 10);
 
 const pool = new Pool({ connectionString: DATABASE_URL });
 
+// Track last split to prevent thrashing
+let lastSplitTime: number | null = null;
+
 console.log(`🔧 UTXO Pool Replenisher`);
 console.log(`========================================`);
 console.log(`Min Pool Size: ${MIN_POOL_SIZE.toLocaleString()} UTXOs`);
 console.log(`Target Split Size: ${TARGET_SPLIT_SIZE.toLocaleString()} UTXOs`);
 console.log(`Check Interval: ${CHECK_INTERVAL_MS / 1000}s`);
+console.log(`Split Cooldown: ${SPLIT_COOLDOWN_MS / 1000}s`);
 console.log(`UTXO Amount: ${UTXO_AMOUNT} sats`);
 console.log(`========================================\n`);
 
@@ -219,6 +224,15 @@ async function checkAndReplenish(): Promise<void> {
     if (stats.available_100sat < MIN_POOL_SIZE) {
       console.log(`\n⚠️  Pool below threshold (${MIN_POOL_SIZE.toLocaleString()})!`);
 
+      // Check cooldown to prevent thrashing during load tests
+      const now = Date.now();
+      if (lastSplitTime && (now - lastSplitTime) < SPLIT_COOLDOWN_MS) {
+        const remainingMs = SPLIT_COOLDOWN_MS - (now - lastSplitTime);
+        console.log(`⏳ Cooldown active: ${Math.ceil(remainingMs / 1000)}s remaining`);
+        console.log(`   (prevents false triggers during mid-flight UTXO transitions)`);
+        return;
+      }
+
       if (!stats.largest_utxo_id || !stats.largest_utxo_sats) {
         console.log(`❌ No large UTXO available for splitting`);
         console.log(`   Manual action required: fund ${BSV_ADDRESS} with at least 1 BSV`);
@@ -229,6 +243,9 @@ async function checkAndReplenish(): Promise<void> {
       console.log(`   Target: ${TARGET_SPLIT_SIZE.toLocaleString()} new UTXOs`);
 
       const result = await splitUtxo(stats.largest_utxo_id, TARGET_SPLIT_SIZE);
+
+      // Update cooldown timestamp
+      lastSplitTime = Date.now();
 
       console.log(`\n✅ Replenishment complete!`);
       console.log(`   TXID: ${result.txid}`);
