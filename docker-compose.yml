@@ -129,8 +129,8 @@ services:
       BSV_ADDRESS: ${BSV_ADDRESS}
       EXPLORER_BASE_URL: https://explorer.codenlighten.org
       FEE_SATS_PER_KB: 100
-      MIN_UTXO_POOL_SIZE: 5000
-      UTXO_SPLIT_SIZE: 10000
+      MIN_UTXO_POOL_SIZE: 8000
+      UTXO_SPLIT_SIZE: 15000
       POOL_CHECK_INTERVAL_MS: 30000
       LOG_LEVEL: info
     depends_on:
