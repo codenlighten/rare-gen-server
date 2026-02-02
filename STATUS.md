@@ -1,10 +1,10 @@
 # RareGen Server - Investor-Grade DRM Rights Publisher for BSV
 
-**Version:** 2.0.0 (TypeScript/Fastify/BullMQ)  
-**Last Updated:** January 30, 2026  
-**Status:** 🟢 **Production Ready with Safety Rails Deployed**  
+**Version:** 2.1.0 (Batch Mode Deployed)  
+**Last Updated:** February 2, 2026  
+**Status:** 🟢 **Production: Batch Mode Active (500 tx/3s Rate Limited)**  
 **Brand Identity:** 🦁 Lion Rasta Theme (Strength + Freedom)  
-**Latest Deployment:** Jan 30, 2026 18:17 UTC - See [DEPLOYMENT_VERIFICATION.md](DEPLOYMENT_VERIFICATION.md)
+**Latest Deployment:** Feb 2, 2026 03:50 UTC - Batch-worker operational
 
 ---
 

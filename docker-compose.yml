@@ -6,7 +6,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: raregen
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: Nb+tKalazPj+CRvuFQ2KLPq8NkSp9iKjKJQSrN2Loyk=
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -37,7 +37,7 @@ services:
     command: ["node", "dist/api.js"]
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/raregen
+      DATABASE_URL: postgresql://postgres:Nb+tKalazPj+CRvuFQ2KLPq8NkSp9iKjKJQSrN2Loyk=@postgres:5432/raregen
       REDIS_URL: redis://redis:6379
       PORT: 3000
       BSV_PRIVATE_KEY: ${BSV_PRIVATE_KEY}
@@ -70,7 +70,7 @@ services:
     command: ["node", "dist/worker.js"]
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/raregen
+      DATABASE_URL: postgresql://postgres:Nb+tKalazPj+CRvuFQ2KLPq8NkSp9iKjKJQSrN2Loyk=@postgres:5432/raregen
       REDIS_URL: redis://redis:6379
       BSV_PRIVATE_KEY: ${BSV_PRIVATE_KEY}
       BSV_ADDRESS: ${BSV_ADDRESS}
@@ -95,7 +95,7 @@ services:
     command: ["node", "dist/batch-worker.js"]
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/raregen
+      DATABASE_URL: postgresql://postgres:Nb+tKalazPj+CRvuFQ2KLPq8NkSp9iKjKJQSrN2Loyk=@postgres:5432/raregen
       BSV_PRIVATE_KEY: ${BSV_PRIVATE_KEY}
       BSV_ADDRESS: ${BSV_ADDRESS}
       EXPLORER_BASE_URL: https://explorer.codenlighten.org
