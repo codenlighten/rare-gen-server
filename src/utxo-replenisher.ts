@@ -61,10 +61,14 @@ async function getPoolStats(): Promise<PoolStats> {
       COUNT(*) as total_available,
       SUM(satoshis) as total_sats,
       (SELECT id FROM utxos 
-       WHERE status = 'available' AND purpose = 'publish' AND satoshis > 100
+       WHERE status = 'available' 
+         AND purpose IN ('funding', 'change') 
+         AND satoshis > 1000000
        ORDER BY satoshis DESC LIMIT 1) as largest_utxo_id,
       (SELECT satoshis FROM utxos 
-       WHERE status = 'available' AND purpose = 'publish' AND satoshis > 100
+       WHERE status = 'available' 
+         AND purpose IN ('funding', 'change') 
+         AND satoshis > 1000000
        ORDER BY satoshis DESC LIMIT 1) as largest_utxo_sats
     FROM utxos
     WHERE status = 'available' AND purpose = 'publish'
@@ -88,11 +92,13 @@ async function splitUtxo(
   sourceUtxoId: number,
   count: number
 ): Promise<{ txid: string; outputs: number }> {
-  // Get source UTXO details
+  // Get source UTXO details (must be funding/change purpose)
   const result = await pool.query(
-    `SELECT id, txid, vout, satoshis, script_pub_key, address
+    `SELECT id, txid, vout, satoshis, script_pub_key, address, purpose
      FROM utxos
-     WHERE id = $1 AND status = 'available'`,
+     WHERE id = $1 
+       AND status = 'available'
+       AND purpose IN ('funding', 'change')`,
     [sourceUtxoId]
   );
 
@@ -184,10 +190,10 @@ async function splitUtxo(
       );
       insertedCount++;
     } else if (output.satoshis > outputAmount) {
-      // Change output
+      // Change output (mark as 'change' for future splitting)
       await pool.query(
         `INSERT INTO utxos (txid, vout, satoshis, script_pub_key, address, purpose, status)
-         VALUES ($1, $2, $3, $4, $5, 'publish', 'available')
+         VALUES ($1, $2, $3, $4, $5, 'change', 'available')
          ON CONFLICT (txid, vout) DO NOTHING`,
         [txid, vout, output.satoshis, output.script.toHex(), BSV_ADDRESS]
       );

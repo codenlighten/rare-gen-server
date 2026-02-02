@@ -114,6 +114,35 @@ services:
     networks:
       - raregen_net
 
+  # UTXO Pool Replenisher (automated pool maintenance)
+  replenisher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "dist/utxo-replenisher.js"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:Nb+tKalazPj+CRvuFQ2KLPq8NkSp9iKjKJQSrN2Loyk=@postgres:5432/raregen
+      REDIS_URL: redis://redis:6379
+      BSV_PRIVATE_KEY: ${BSV_PRIVATE_KEY}
+      BSV_ADDRESS: ${BSV_ADDRESS}
+      EXPLORER_BASE_URL: https://explorer.codenlighten.org
+      FEE_SATS_PER_KB: 100
+      MIN_UTXO_POOL_SIZE: 5000
+      UTXO_SPLIT_SIZE: 10000
+      POOL_CHECK_INTERVAL_MS: 30000
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - batch
+    networks:
+      - raregen_net
+
 volumes:
   pgdata:
 
